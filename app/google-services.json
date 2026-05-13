@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "400240875223",
+    "project_id": "codequiz-2468e",
+    "storage_bucket": "codequiz-2468e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:400240875223:android:0fdf10a66048ea0b9d0292",
+        "android_client_info": {
+          "package_name": "com.Ezziani.codequiz"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAagZN0fGbx95uYpL345Ik4UQNsDgB8Z7g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
