@@ -43,6 +43,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     FirebaseFirestore db;
     FirebaseAuth auth;
     LocationCallback locationCallback;
+    boolean mapReady = false;
+    boolean playersLoaded = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +62,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         db = FirebaseFirestore.getInstance();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         tvLocationInfo = findViewById(R.id.tvLocationInfo);
+        tvLocationInfo.setText("📍 Loading map...");
 
         SupportMapFragment mapFragment = (SupportMapFragment)
                 getSupportFragmentManager().findFragmentById(R.id.map);
@@ -77,14 +80,18 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
-        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+        mapReady = true;
 
-        // When user taps a marker show their info
+        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
         mMap.setOnMarkerClickListener(marker -> {
             marker.showInfoWindow();
             return true;
         });
 
+        // Always load all players first regardless of location permission
+        loadAllPlayers();
+
+        // Then try to get user's own location
         checkLocationPermission();
     }
 
@@ -107,8 +114,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             getLocation();
         } else {
-            Toast.makeText(this, "Location permission denied",
-                    Toast.LENGTH_SHORT).show();
+            // Permission denied — still show other players on the map
+            tvLocationInfo.setText("📍 Location permission denied — showing other players");
+            loadAllPlayers();
         }
     }
 
@@ -118,7 +126,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 != PackageManager.PERMISSION_GRANTED) return;
 
         mMap.setMyLocationEnabled(true);
-        tvLocationInfo.setText("📍 Getting your location...");
 
         fusedLocationClient.getLastLocation()
                 .addOnSuccessListener(location -> {
@@ -152,7 +159,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 } else {
                     runOnUiThread(() ->
                             tvLocationInfo.setText(
-                                    "📍 Could not get location. Set location in emulator settings.")
+                                    "📍 Could not get location — showing other players")
                     );
                 }
                 fusedLocationClient.removeLocationUpdates(locationCallback);
@@ -176,6 +183,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 runOnUiThread(() -> {
                     saveLocationToFirestore(lat, lng, cityName);
                     focusOnUser(userLatLng, cityName);
+                    // Reload players after saving to include updated position
                     loadAllPlayers();
                 });
             });
@@ -195,40 +203,53 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     }
 
     private void saveLocationToFirestore(double lat, double lng, String cityName) {
+        if (auth.getCurrentUser() == null) return;
         String uid = auth.getCurrentUser().getUid();
         Map<String, Object> update = new HashMap<>();
         update.put("city", cityName);
         update.put("lat", lat);
         update.put("lng", lng);
-        db.collection("users").document(uid).update(update);
+        db.collection("users").document(uid).update(update)
+                .addOnFailureListener(e ->
+                        // If update fails (field doesn't exist yet), use set with merge
+                        db.collection("users").document(uid)
+                                .set(update, com.google.firebase.firestore.SetOptions.merge())
+                );
     }
 
     private void focusOnUser(LatLng userLatLng, String cityName) {
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 5f));
+        if (!mapReady) return;
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 5f));
         tvLocationInfo.setText("📍 Your location: " + cityName +
                 " — Tap any marker to see a player!");
     }
 
     private void loadAllPlayers() {
+        if (!mapReady) return;
+        if (auth.getCurrentUser() == null) return;
+
         String currentUid = auth.getCurrentUser().getUid();
 
         db.collection("users").get()
                 .addOnSuccessListener(snapshot -> {
+                    // Clear old markers before adding new ones
+                    mMap.clear();
                     int playerCount = 0;
+
                     for (QueryDocumentSnapshot doc : snapshot) {
                         Double lat = doc.getDouble("lat");
                         Double lng = doc.getDouble("lng");
                         String username = doc.getString("username");
                         String level = doc.getString("level");
                         String city = doc.getString("city");
+                        String uid = doc.getId();
 
+                        // Skip users without location
                         if (lat == null || lng == null || username == null) continue;
 
                         playerCount++;
                         LatLng playerLatLng = new LatLng(lat, lng);
-                        String uid = doc.getId();
 
-                        // Current user gets a different color marker
                         float markerColor = uid.equals(currentUid)
                                 ? BitmapDescriptorFactory.HUE_AZURE
                                 : BitmapDescriptorFactory.HUE_RED;
@@ -243,15 +264,23 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                                 .icon(BitmapDescriptorFactory.defaultMarker(markerColor)));
                     }
 
-                    int finalPlayerCount = playerCount;
-                    runOnUiThread(() ->
-                            tvLocationInfo.setText("🌍 " + finalPlayerCount +
-                                    " players on the map — You are the blue marker!")
-                    );
+                    int finalCount = playerCount;
+                    runOnUiThread(() -> {
+                        if (finalCount == 0) {
+                            tvLocationInfo.setText(
+                                    "🌍 No players with location yet. " +
+                                            "Allow location to appear on the map!");
+                        } else {
+                            tvLocationInfo.setText("🌍 " + finalCount +
+                                    " players on the map — You are the blue marker!");
+                        }
+                    });
                 })
                 .addOnFailureListener(e ->
-                        Toast.makeText(this, "Could not load players",
-                                Toast.LENGTH_SHORT).show()
+                        runOnUiThread(() ->
+                                Toast.makeText(this, "Could not load players",
+                                        Toast.LENGTH_SHORT).show()
+                        )
                 );
     }
 

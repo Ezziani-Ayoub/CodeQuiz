@@ -6,6 +6,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -44,15 +46,14 @@ public class ProfileActivity extends AppCompatActivity {
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
                 if (result.getResultCode() == RESULT_OK) {
-                    Bitmap bitmap = BitmapFactory.decodeFile(currentPhotoPath);
-                    ivProfile.setImageBitmap(bitmap);
-
-                    // Save the photo path so it persists
-                    prefs.edit().putString("profile_photo_" +
-                            auth.getCurrentUser().getUid(), currentPhotoPath).apply();
-
-                    Toast.makeText(this, "Profile photo updated!",
-                            Toast.LENGTH_SHORT).show();
+                    Bitmap bitmap = loadAndFixRotation(currentPhotoPath);
+                    if (bitmap != null) {
+                        ivProfile.setImageBitmap(bitmap);
+                        prefs.edit().putString("profile_photo_" +
+                                auth.getCurrentUser().getUid(), currentPhotoPath).apply();
+                        Toast.makeText(this, "Profile photo updated!",
+                                Toast.LENGTH_SHORT).show();
+                    }
                 }
             }
     );
@@ -86,10 +87,8 @@ public class ProfileActivity extends AppCompatActivity {
         loadUserData();
 
         btnTakePhoto.setOnClickListener(v -> checkCameraPermission());
-
         btnMap.setOnClickListener(v ->
                 startActivity(new Intent(ProfileActivity.this, MapActivity.class)));
-
         btnLogout.setOnClickListener(v -> {
             auth.signOut();
             startActivity(new Intent(ProfileActivity.this, LoginActivity.class));
@@ -103,23 +102,47 @@ public class ProfileActivity extends AppCompatActivity {
         return true;
     }
 
+    // ✅ Fix: reads EXIF orientation and rotates the bitmap correctly
+    private Bitmap loadAndFixRotation(String path) {
+        Bitmap bitmap = BitmapFactory.decodeFile(path);
+        if (bitmap == null) return null;
+        try {
+            ExifInterface exif = new ExifInterface(path);
+            int orientation = exif.getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL);
+            Matrix matrix = new Matrix();
+            switch (orientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    matrix.postRotate(90); break;
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    matrix.postRotate(180); break;
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    matrix.postRotate(270); break;
+                default: return bitmap;
+            }
+            return Bitmap.createBitmap(bitmap, 0, 0,
+                    bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+        } catch (IOException e) {
+            return bitmap;
+        }
+    }
+
     private void loadSavedPhoto() {
         String uid = auth.getCurrentUser().getUid();
         String savedPath = prefs.getString("profile_photo_" + uid, null);
         if (savedPath != null) {
             File imgFile = new File(savedPath);
             if (imgFile.exists()) {
-                Bitmap bitmap = BitmapFactory.decodeFile(savedPath);
-                ivProfile.setImageBitmap(bitmap);
+                Bitmap bitmap = loadAndFixRotation(savedPath);
+                if (bitmap != null) ivProfile.setImageBitmap(bitmap);
             }
         }
     }
 
     private void loadUserData() {
         String uid = auth.getCurrentUser().getUid();
-        String email = auth.getCurrentUser().getEmail();
-        tvEmail.setText(email);
-
+        tvEmail.setText(auth.getCurrentUser().getEmail());
         db.collection("users").document(uid).get()
                 .addOnSuccessListener(doc -> {
                     if (doc.exists()) {

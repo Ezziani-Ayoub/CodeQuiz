@@ -39,6 +39,10 @@ public class MainActivity extends AppCompatActivity {
 
         btnHistory.setOnClickListener(v ->
                 startActivity(new Intent(MainActivity.this, HistoryActivity.class)));
+
+        Button btnAvatar = findViewById(R.id.btnAvatar);
+        btnAvatar.setOnClickListener(v ->
+                startActivity(new Intent(MainActivity.this, AvatarActivity.class)));
     }
 
     private void loadUserData() {

@@ -114,13 +114,55 @@
 
         </ScrollView>
 
+        <!-- Voice + AI buttons -->
+        <!-- Voice + AI buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnVoice"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:minWidth="48dp"
+                android:minHeight="48dp"
+                android:backgroundTint="@color/surface"
+                android:text="🎤 Voice Answer"
+                android:contentDescription="Voice Answer Button"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btnAiHint"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:minWidth="48dp"
+                android:minHeight="48dp"
+                android:backgroundTint="@color/surface"
+                android:text="🤖 AI Hint"
+                android:contentDescription="AI Hint Button"
+                android:textColor="@color/primary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
         <!-- Answer buttons -->
         <Button
             android:id="@+id/btnA"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
+            android:minHeight="48dp"
             android:backgroundTint="@color/surface"
+            android:contentDescription="Answer option A"
             android:textColor="@color/text_primary"
             android:textSize="13sp" />
 
@@ -129,7 +171,9 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="8dp"
+            android:minHeight="48dp"
             android:backgroundTint="@color/surface"
+            android:contentDescription="Answer option B"
             android:textColor="@color/text_primary"
             android:textSize="13sp" />
 
@@ -138,7 +182,9 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="8dp"
+            android:minHeight="48dp"
             android:backgroundTint="@color/surface"
+            android:contentDescription="Answer option C"
             android:textColor="@color/text_primary"
             android:textSize="13sp" />
 
@@ -147,10 +193,11 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="8dp"
+            android:minHeight="48dp"
             android:backgroundTint="@color/surface"
+            android:contentDescription="Answer option D"
             android:textColor="@color/text_primary"
             android:textSize="13sp" />
-
-    </LinearLayout>
+        </LinearLayout>
 
 </LinearLayout>
